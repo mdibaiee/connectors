@@ -83,6 +83,14 @@ if [[ -z "$CONNECTOR_CONFIG" ]]; then
 fi
 trap "kill -s SIGTERM ${DATA_PLANE_PID} && wait ${DATA_PLANE_PID} && ./tests/${CONNECTOR}/cleanup.sh" EXIT
 
+# Verify discover works
+${TESTDIR}/flowctl api discover --image="${CONNECTOR_IMAGE}" --config=<(echo ${CONNECTOR_CONFIG}) > ${TESTDIR}/raw_bindings.json || bail "Discover failed."
+cat ${TESTDIR}/raw_bindings.json | jq ".bindings[] | select(.resourceSpec.stream == \"${TEST_STREAM}\") | .documentSchema" > ${TESTDIR}/bindings.json
+
+if [[ -f "tests/${CONNECTOR}/bindings.json" ]]; then
+  diff --side-by-side ${TESTDIR}/bindings.json "tests/${CONNECTOR}/bindings.json" || bail "Discovered bindings are wrong"
+fi
+
 # Generate the test-specific catalog source.
 cat tests/template.flow.yaml | envsubst > "${CATALOG_SOURCE}"
 
